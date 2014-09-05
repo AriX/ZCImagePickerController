@@ -13,6 +13,8 @@
 @property (nonatomic, strong) NSMutableArray *selectedAssets;
 @property (nonatomic, strong) NSMutableSet *selectedAssetsURLs;
 
+@property (nonatomic, copy) NSArray *assets;
+
 @end
 
 static const CGFloat kTopInset = 2.0;
@@ -29,8 +31,6 @@ static const CGFloat kFooterHeight = 60.0;
     NSString *_groupPersistentID;
 }
 
-@synthesize assetsGroup, selectedAssets, selectedAssetsURLs;
-
 #pragma mark - Public Methods
 
 - (id)initWithGroupPersistentID:(NSString *)groupPersistentID {
@@ -46,8 +46,8 @@ static const CGFloat kFooterHeight = 60.0;
 - (void)viewDidLoad {
     [super viewDidLoad];
     
-    self.wantsFullScreenLayout = YES;
-    self.contentSizeForViewInPopover = CGSizeMake(320, 460);
+//    self.wantsFullScreenLayout = YES;
+//    self.contentSizeForViewInPopover = CGSizeMake(320, 460);
     
     UIEdgeInsets tableViewInsets = self.tableView.contentInset;
     
@@ -105,14 +105,14 @@ static const CGFloat kFooterHeight = 60.0;
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
     
     NSUInteger maxCountInEachRow = floor(self.view.bounds.size.width / 79.0f);
-    NSInteger numberOfAssets = [self.assetsGroup numberOfAssets];
+    NSInteger numberOfAssets = self.assets.count;
     NSInteger numberOfRows = ceil((float)numberOfAssets / maxCountInEachRow);
     
     return numberOfRows;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    static NSString *CellIdentifier = @"Cell";
+    static NSString *CellIdentifier = @"ZCAssetCell";
     
     ZCAssetCell *cell = (ZCAssetCell *)[tableView dequeueReusableCellWithIdentifier:CellIdentifier];
     
@@ -173,73 +173,85 @@ static const CGFloat kFooterHeight = 60.0;
     }
 }
 
-- (void)reloadData {
-    
-    __block BOOL albumAlreadyExist = NO;
-    
-    [((ZCImagePickerController *)self.navigationController).assetsLibrary enumerateGroupsWithTypes:ALAssetsGroupAll usingBlock:^(ALAssetsGroup *group, BOOL *stop) {
-        
-        if (group) {
-            if ([_groupPersistentID isEqualToString:[group valueForProperty:ALAssetsGroupPropertyPersistentID]]) {
-                albumAlreadyExist = YES;
-                *stop = YES;
-                
-                ZCImagePickerController *currentNavigationController = (ZCImagePickerController *)self.navigationController;
-                
-                [group setAssetsFilter:[ALAssetsFilter allPhotos]];
-                NSUInteger photoCount = [group numberOfAssets];
-                NSString *photoPart = photoCount > 1 || photoCount == 0 ? [NSString stringWithFormat:NSLocalizedStringFromTable(@"%i Photos", LOCALIZED_STRING_TABLE, nil), photoCount] : NSLocalizedStringFromTable(@"1 Photo", LOCALIZED_STRING_TABLE, nil);
-                
-                [group setAssetsFilter:[ALAssetsFilter allVideos]];
-                NSUInteger videoCount = [group numberOfAssets];
-                NSString *videoPart = videoCount > 1 || videoCount == 0 ? [NSString stringWithFormat:NSLocalizedStringFromTable(@"%i Videos", LOCALIZED_STRING_TABLE, nil), videoCount] : NSLocalizedStringFromTable(@"1 Video", LOCALIZED_STRING_TABLE, nil);
-                
-                if (currentNavigationController.mediaType == ZCMediaAllPhotos) {
-                    _tableFooterLabel.text = photoPart;
-                }
-                else if (currentNavigationController.mediaType == ZCMediaAllVideos) {
-                    _tableFooterLabel.text = videoPart;
-                }
-                else {
-                    _tableFooterLabel.text = [NSString stringWithFormat:@"%@, %@", photoPart, videoPart];
-                }
-                
-                [group setAssetsFilter:[currentNavigationController assetsGroupFilter]];
-                self.assetsGroup = group;
-                
-                // Reset tableview offset when data is ready
-                NSUInteger numberOfRows = [self.tableView.dataSource tableView:self.tableView numberOfRowsInSection:0];
-                CGFloat viewHeight = self.view.bounds.size.height;
-                
-                CGFloat topOffset = numberOfRows * kRowHeight + kTopInset + kFooterHeight - viewHeight;
-                if (topOffset > 0) {
-                    self.tableView.contentOffset = CGPointMake(0, topOffset);
-                }
-                else {
-                    if (numberOfRows == 0) {
-                        self.tableView.contentOffset = CGPointMake(0, -64);
+- (ALAssetsGroup *)assetsGroup {
+    if (!_assetsGroup) {
+        [((ZCImagePickerController *)self.navigationController).assetsLibrary enumerateGroupsWithTypes:ALAssetsGroupAll usingBlock:^(ALAssetsGroup *group, BOOL *stop) {
+            
+            if (group) {
+                if ([_groupPersistentID isEqualToString:[group valueForProperty:ALAssetsGroupPropertyPersistentID]]) {
+                    _assetsGroup = group;
+                    *stop = YES;
+                    
+                    ZCImagePickerController *currentNavigationController = (ZCImagePickerController *)self.navigationController;
+                    
+                    [group setAssetsFilter:[currentNavigationController assetsGroupFilter]];
+                    
+                    __block NSInteger photoCount = 0, videoCount = 0;
+                    NSMutableArray *assets = [NSMutableArray new];
+                    [group enumerateAssetsUsingBlock:^(ALAsset *result, NSUInteger index, BOOL *stop) {
+                        if (result) {
+                            NSString *type = [result valueForProperty:ALAssetPropertyType];
+                            if ([type isEqualToString:ALAssetTypePhoto])
+                                photoCount++;
+                            else if ([type isEqualToString:ALAssetTypeVideo])
+                                videoCount++;
+                            
+                            [assets addObject:result];
+                        }
+                    }];
+                    
+                    self.assets = assets;
+                    
+                    NSString *photoPart = photoCount > 1 || photoCount == 0 ? [NSString stringWithFormat:NSLocalizedStringFromTable(@"%i Photos", LOCALIZED_STRING_TABLE, nil), photoCount] : NSLocalizedStringFromTable(@"1 Photo", LOCALIZED_STRING_TABLE, nil);
+                    
+                    NSString *videoPart = videoCount > 1 || videoCount == 0 ? [NSString stringWithFormat:NSLocalizedStringFromTable(@"%i Videos", LOCALIZED_STRING_TABLE, nil), videoCount] : NSLocalizedStringFromTable(@"1 Video", LOCALIZED_STRING_TABLE, nil);
+                    
+                    if (currentNavigationController.mediaType == ZCMediaAllPhotos) {
+                        _tableFooterLabel.text = photoPart;
+                    }
+                    else if (currentNavigationController.mediaType == ZCMediaAllVideos) {
+                        _tableFooterLabel.text = videoPart;
                     }
                     else {
-                        self.tableView.contentOffset = CGPointMake(0, 0);
+                        _tableFooterLabel.text = [NSString stringWithFormat:@"%@, %@", photoPart, videoPart];
                     }
+                    
+                    // Reset tableview offset when data is ready
+                    NSUInteger numberOfRows = [self.tableView.dataSource tableView:self.tableView numberOfRowsInSection:0];
+                    CGFloat viewHeight = self.view.bounds.size.height;
+                    
+                    CGFloat topOffset = numberOfRows * kRowHeight + kTopInset + kFooterHeight - viewHeight;
+                    if (topOffset > 0) {
+                        self.tableView.contentOffset = CGPointMake(0, topOffset);
+                    }
+                    else {
+                        if (numberOfRows == 0) {
+                            self.tableView.contentOffset = CGPointMake(0, -64);
+                        }
+                        else {
+                            self.tableView.contentOffset = CGPointMake(0, 0);
+                        }
+                    }
+                    
+                    [self.tableView reloadData];
+                    [self updateNavigationBarStatus];
                 }
-                
-                [self.tableView reloadData];
-                [self updateNavigationBarStatus];
             }
-        }
-        else {
-            if (!albumAlreadyExist) {
-                [self.navigationController popViewControllerAnimated:YES];
-            }
-        }
-        
-    } failureBlock:^(NSError *error) {
-        UIAlertView *errorView = [[UIAlertView alloc] initWithTitle:[error localizedDescription] message:[error localizedRecoverySuggestion] delegate:nil cancelButtonTitle:NSLocalizedStringFromTable(@"OK", LOCALIZED_STRING_TABLE, nil) otherButtonTitles:nil];
-        [errorView show];
-        
-        [self updateNavigationBarStatus];
-    }];
+            
+        } failureBlock:^(NSError *error) {
+            //        UIAlertView *errorView = [[UIAlertView alloc] initWithTitle:[error localizedDescription] message:[error localizedRecoverySuggestion] delegate:nil cancelButtonTitle:NSLocalizedStringFromTable(@"OK", LOCALIZED_STRING_TABLE, nil) otherButtonTitles:nil];
+            //        [errorView show];
+            
+            [self updateNavigationBarStatus];
+        }];
+    }
+    
+    return _assetsGroup;
+}
+
+- (void)reloadData {
+    [self assetsGroup];
+    [self.tableView reloadData];
 }
 
 - (void)doneAction:(id)sender {
@@ -321,18 +333,16 @@ static const CGFloat kFooterHeight = 60.0;
 - (NSArray *)assetsForIndexPath:(NSIndexPath *)indexPath {
     NSUInteger maxCountInEachRow = floor(self.view.bounds.size.width / 79.0f);
     NSUInteger startIndex = indexPath.row * maxCountInEachRow;
-    NSUInteger length = MIN([self.assetsGroup numberOfAssets] - startIndex , maxCountInEachRow);
+    NSUInteger length = MIN(self.assets.count - startIndex , maxCountInEachRow);
     NSRange range = NSMakeRange(startIndex, length);
     
     NSMutableArray *rowAssets = [NSMutableArray arrayWithCapacity:maxCountInEachRow];
-    [self.assetsGroup enumerateAssetsAtIndexes:[NSIndexSet indexSetWithIndexesInRange:range] options:NSEnumerationConcurrent usingBlock:^(ALAsset *result, NSUInteger index, BOOL *stop) {
-        
-        if (result) {
-            ZCAsset *asset = [[ZCAsset alloc] initWithAsset:result selected:[self.selectedAssetsURLs containsObject:[[result defaultRepresentation] url]]];
-            asset.delegate = self;
-            [rowAssets addObject:asset];
-        }
-    }];
+    for (ALAsset *result in [self.assets subarrayWithRange:range]) {
+        ZCAsset *asset = [[ZCAsset alloc] initWithAsset:result selected:[self.selectedAssetsURLs containsObject:[[result defaultRepresentation] url]]];
+        asset.delegate = self;
+        [rowAssets addObject:asset];
+    }
+    
     return rowAssets;
 }
 

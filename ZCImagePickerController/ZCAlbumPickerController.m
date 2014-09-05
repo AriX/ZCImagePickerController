@@ -16,20 +16,18 @@ static const CGFloat kRowHeight = 57.0;
 
 @implementation ZCAlbumPickerController
 
-@synthesize assetsGroups;
-
 #pragma mark - View lifecycle
 
 - (void)viewDidLoad {
     [super viewDidLoad];
 	
-    self.wantsFullScreenLayout = YES;
-    
-    self.contentSizeForViewInPopover = CGSizeMake(320, 460);
+//    self.wantsFullScreenLayout = YES;
+//    
+//    self.contentSizeForViewInPopover = CGSizeMake(320, 460);
     
     self.navigationItem.title = NSLocalizedStringFromTable(@"Loading...", LOCALIZED_STRING_TABLE, nil);
     
-    if ([ZCHelper isPhone]) {
+    if (self.presentingViewController.modalPresentationStyle != UIModalPresentationPopover) {
         UIBarButtonItem *cancelButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemCancel target:self.navigationController action:@selector(cancelImagePicker)];
         [self.navigationItem setRightBarButtonItem:cancelButton];
     }
@@ -50,7 +48,6 @@ static const CGFloat kRowHeight = 57.0;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    
     static NSString *CellIdentifier = @"Cell";
     
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:CellIdentifier];
@@ -63,7 +60,7 @@ static const CGFloat kRowHeight = 57.0;
     ALAssetsGroup *assetsGroup = (ALAssetsGroup *)[self.assetsGroups objectAtIndex:indexPath.row];
     NSInteger assetsCount = [assetsGroup numberOfAssets];
     
-    cell.textLabel.text = [NSString stringWithFormat:@"%@ (%d)", [assetsGroup valueForProperty:ALAssetsGroupPropertyName], assetsCount];
+    cell.textLabel.text = [NSString stringWithFormat:@"%@ (%ld)", [assetsGroup valueForProperty:ALAssetsGroupPropertyName], (long)assetsCount];
     cell.imageView.image = [UIImage imageWithCGImage:[assetsGroup posterImage]];
 	
     return cell;
@@ -72,7 +69,6 @@ static const CGFloat kRowHeight = 57.0;
 #pragma mark - Table view delegate
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    
     NSString *assetsGroupPersistentID = [((ALAssetsGroup *)[self.assetsGroups objectAtIndex:indexPath.row]) valueForProperty:ALAssetsGroupPropertyPersistentID];
     ZCAssetTablePicker *assetTablePicker = [[ZCAssetTablePicker alloc] initWithGroupPersistentID:assetsGroupPersistentID];
     
@@ -86,20 +82,19 @@ static const CGFloat kRowHeight = 57.0;
 #pragma mark - Private Methods
 
 - (void)reloadData {
-    
     [self.assetsGroups removeAllObjects];
     
     // Load Albums into assetsGroups
     dispatch_async(dispatch_get_main_queue(), ^ {
-        
         @autoreleasepool {
-            
             // Group Enumerator Block
             void (^assetGroupEnumerator)(ALAssetsGroup *, BOOL *) = ^(ALAssetsGroup *group, BOOL *stop) {
-                
                 if (group) {
                     [group setAssetsFilter:[(ZCImagePickerController *)self.navigationController assetsGroupFilter]];
-                    [self.assetsGroups addObject:group];
+                    if ([[group valueForProperty:ALAssetsGroupPropertyType] unsignedIntegerValue] == ALAssetsGroupSavedPhotos)
+                        [self.assetsGroups insertObject:group atIndex:0];
+                    else
+                        [self.assetsGroups addObject:group];
                 }
                 else {
                     [self.tableView reloadData];
@@ -110,16 +105,15 @@ static const CGFloat kRowHeight = 57.0;
             // Group Enumerator Failure Block
             void (^assetGroupEnumberatorFailure)(NSError *) = ^(NSError *error) {
                 
-                UIAlertView *errorView = [[UIAlertView alloc] initWithTitle:[error localizedDescription] message:[error localizedRecoverySuggestion] delegate:nil cancelButtonTitle:NSLocalizedStringFromTable(@"OK", LOCALIZED_STRING_TABLE, nil) otherButtonTitles:nil];
-                [errorView show];
+//                UIAlertView *errorView = [[UIAlertView alloc] initWithTitle:[error localizedDescription] message:[error localizedRecoverySuggestion] delegate:nil cancelButtonTitle:NSLocalizedStringFromTable(@"OK", LOCALIZED_STRING_TABLE, nil) otherButtonTitles:nil];
+//                [errorView show];
                 
                 self.navigationItem.title = NSLocalizedStringFromTable(@"Albums", LOCALIZED_STRING_TABLE, nil);
             };
             
             // Enumerate Albums
-            [((ZCImagePickerController *)self.navigationController).assetsLibrary enumerateGroupsWithTypes:ALAssetsGroupAll
-                                                                                                usingBlock:assetGroupEnumerator
-                                                                                              failureBlock:assetGroupEnumberatorFailure];
+            ALAssetsLibrary *assetsLibrary = [(ZCImagePickerController *)self.navigationController assetsLibrary];
+            [assetsLibrary enumerateGroupsWithTypes:ALAssetsGroupAll usingBlock:assetGroupEnumerator failureBlock:assetGroupEnumberatorFailure];
         }
     });
 }

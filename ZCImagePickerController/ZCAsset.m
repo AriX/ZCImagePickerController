@@ -47,7 +47,7 @@ static const CGFloat kThumbHeight = 75.0;
             double duration = ((NSNumber *)[asset valueForProperty:ALAssetPropertyDuration]).doubleValue;
             NSUInteger seconds = (int)duration % 60;
             NSUInteger minutes = (int)duration / 60;
-            NSString *durationString = [NSString stringWithFormat:@"%i:%.2i", minutes, seconds];
+            NSString *durationString = [NSString stringWithFormat:@"%lu:%.2lu", (unsigned long)minutes, (unsigned long)seconds];
             
             CATextLayer *durationLayer = [CATextLayer layer];
             durationLayer.contentsScale = [UIScreen mainScreen].scale;

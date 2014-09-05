@@ -7,10 +7,10 @@
 
 @implementation ZCImagePickerController {
     
-@private
-    UIStatusBarStyle originalStatusBarStyle;
-    UIBarStyle originalNavigationBarStyle;
-    BOOL isOriginalNavigationBarTranslucent;
+//@private
+//    UIStatusBarStyle originalStatusBarStyle;
+//    UIBarStyle originalNavigationBarStyle;
+//    BOOL isOriginalNavigationBarTranslucent;
 }
 
 @synthesize imagePickerDelegate, maximumAllowsSelectionCount, assetsLibrary, mediaType;
@@ -43,35 +43,31 @@
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     
-    if ([ZCHelper isPhone]) {
-        // backup the original status bar and navigation bar style
-        originalStatusBarStyle = [UIApplication sharedApplication].statusBarStyle;
-        originalNavigationBarStyle = self.navigationBar.barStyle;
-        isOriginalNavigationBarTranslucent = self.navigationBar.translucent;
-        
-        // change the status bar and navigation bar style
-        [[UIApplication sharedApplication] setStatusBarStyle:UIStatusBarStyleBlackTranslucent animated:YES];
-        
-        if ([ZCHelper isiOS7orLater]) {
-            self.navigationBar.barStyle = UIBarStyleDefault;
-        }
-        else {
-            self.navigationBar.barStyle = UIBarStyleBlack;
-        }
-        self.navigationBar.translucent = YES;
-    }
+//    if ([ZCHelper isPhone]) {
+//        // backup the original status bar and navigation bar style
+//        originalStatusBarStyle = [UIApplication sharedApplication].statusBarStyle;
+//        originalNavigationBarStyle = self.navigationBar.barStyle;
+//        isOriginalNavigationBarTranslucent = self.navigationBar.translucent;
+//        
+//        // change the status bar and navigation bar style
+//        if ([ZCHelper isiOS7orLater]) {
+//            self.navigationBar.barStyle = UIBarStyleDefault;
+//        }
+//        else {
+//            self.navigationBar.barStyle = UIBarStyleBlack;
+//        }
+//        self.navigationBar.translucent = YES;
+//    }
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
     
-    if ([ZCHelper isPhone]) {
-        // restore the original status bar and navigation bar style
-        [[UIApplication sharedApplication] setStatusBarStyle:originalStatusBarStyle animated:YES];
-        
-        self.navigationBar.barStyle = originalNavigationBarStyle;
-        self.navigationBar.translucent = isOriginalNavigationBarTranslucent;
-    }
+//    if ([ZCHelper isPhone]) {
+//        // restore the original status bar and navigation bar style
+//        self.navigationBar.barStyle = originalNavigationBarStyle;
+//        self.navigationBar.translucent = isOriginalNavigationBarTranslucent;
+//    }
 }
 
 #pragma mark - Private Methods
